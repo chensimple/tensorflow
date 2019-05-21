@@ -1,0 +1,160 @@
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+    <title>手写数字识别</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        canvas {
+            border: 1px solid #d3d3d3;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="text-align: center">
+        <canvas id="drawc" width="320" height="320" onmousemove="draw(event)" onmousedown="change()"
+            onmouseup="change()" onmouseout="leave()">
+            哦豁，完蛋，你废了!
+        </canvas>
+    </div>
+    <button onclick="flushc()">重写</button>
+    <button onclick="submitc()">提交</button>
+    <div id="data">
+    </div>
+</body>
+<script>
+    var num = 1;
+    var x1, y1;
+    var x2, y2;
+    var x3, y3;
+    var min_x = 160, min_y = 160, max_x = 160, max_y = 160;
+    var onkeep = false;
+    var imgdata;//ARGB
+    var isPC=true;
+    document.getElementById("drawc").addEventListener("touchstart",function e(){onkeep=true;num=1});
+    document.getElementById("drawc").addEventListener("touchmove", draw);
+    document.getElementById("drawc").addEventListener("touchend", leave);
+    function change() {
+        onkeep = !onkeep;
+    }
+
+    function leave() {
+        onkeep = false;
+    }
+
+    function compare(x, y) {
+        if (x < min_x)
+            min_x = x;
+        if (y < min_y)
+            min_y = y;
+        if (x > max_x)
+            max_x = x;
+        if (y > max_y)
+            max_y = y;
+    }
+
+    function draw(e) {
+        e.preventDefault();
+        var dcanvas = document.getElementById("drawc");
+        var x = e.pageX || e.clientX + scrollX;
+        var y = e.pageY || e.clientY + scrollY;
+        var box = dcanvas.getBoundingClientRect();
+        var tx = x - box.left;
+        document.getElementById("data").innerHTML = "(" + tx + "," + y + ")";
+        var p = dcanvas.getContext("2d");
+        p.lineWidth = 15;
+        p.lineCap = "round";
+        p.strokeStyle = "#808080"
+        if (onkeep == true)
+            compare(tx, y);
+        if (num == 1) {
+            x1 = tx;
+            y1 = y;
+        }
+        else if (num == 2) {
+            x2 = tx;
+            y2 = y;
+        }
+        else if (num == 3) {
+            x3 = tx;
+            y3 = y;
+            p.beginPath();
+            p.moveTo(x1, y1);
+            if (onkeep == true ) {
+                p.quadraticCurveTo(x2, y2, x3, y3)
+                p.stroke();
+            }
+            num = 1;
+            x1 = x3;
+            y1 = y3;
+        }
+        num++;
+    }
+
+    function flushc() {
+        var dcanvas = document.getElementById("drawc");
+        var p = dcanvas.getContext("2d");
+        p.clearRect(0, 0, 320, 320);
+        min_x = 160, min_y = 160, max_x = 160, max_y = 160;
+    }
+
+
+    function submitc() {
+        var dcanvas = document.getElementById("drawc");
+        var url = dcanvas.toDataURL("image/png");
+        var cp = document.createElement("canvas");
+        cp.width = 28;
+        cp.height = 28;
+        var x = cp.getContext("2d");
+        img = new Image();
+        img.src = url;
+        var length = Math.max(max_x - min_x, max_y - min_y);
+        img.onload = function () {
+            x.drawImage(img, min_x - 14, min_y - 14, length + 28, length + 28, 0, 0, 28, 28);
+            imgdata = x.getImageData(0, 0, 28, 28);
+            console.log(imgdata["data"].toString());
+        }
+        //get rgba
+        console.log(min_x, min_y, max_x, max_y);
+        var d = document.getElementById("data");
+        d.appendChild(cp);
+
+        if ("WebSocket" in window) {
+            // 打开一个 web socket
+            var ws = new WebSocket("ws://" + location.host + "/echo");
+            ws.onopen = function () {
+                if (typeof (imgdata) != "undefined") {
+                    ws.send(imgdata["data"].toString());
+                }
+                //alert("数据发送中...");
+            };
+
+            ws.onmessage = function (evt) {
+                var received_msg = evt.data;
+                alert(received_msg);
+            };
+
+            ws.onclose = function () {
+                // 关闭 websocket
+                alert("连接已关闭...");
+            };
+        }
+        else {
+            // 浏览器不支持 WebSocket
+            alert("您的浏览器不支持 WebSocket!");
+        }
+
+    }
+
+
+</script>
+
+</html>
